@@ -42,7 +42,7 @@ namespace TaskHiring.Services
         public async Task<double> Convert(string fromCurrency, string toCurrency, double amount)
         {
             var details = await FindShortestWay(fromCurrency, toCurrency);
-            return details.Multiply;
+            return Math.Round(details.Multiply,3);
         }
         public async Task<List<string>> GetShortestPath(string fromCurrency, string toCurrency)
         {
@@ -78,10 +78,10 @@ namespace TaskHiring.Services
             _basePathValue.TryAdd(xy, new PathDetails
             {
                 Count = 1,
-                SequentialPath = new List<string> { yx },
+                SequentialPath = new List<string> { xy },
                 Multiply = multiply
             });
-            _basePathValue.TryAdd(xy, new PathDetails
+            _basePathValue.TryAdd(yx, new PathDetails
             {
                 Count = 1,
                 SequentialPath = new List<string> { yx },
@@ -90,10 +90,12 @@ namespace TaskHiring.Services
             _currencies.Add(x);
             _currencies.Add(y);
         }
-        private async Task<PathDetails> FindShortestWay(string x, string y, List<string> forbiddenPath = null)
+        private async Task<PathDetails> FindShortestWay(string x, string y, List<string> forbiddenPath = null, HashSet<string> improperPath = null)
         {
             if (forbiddenPath == null || forbiddenPath.Count < 1)
                 forbiddenPath = new List<string>() { x, y };
+            if (improperPath == null || improperPath.Count < 1)
+                improperPath = new HashSet<string>();
             var xy = GetPairs(x, y);
             var yx = GetPairs(y, x);
 
@@ -101,6 +103,8 @@ namespace TaskHiring.Services
             {
                 return _pathValue[xy];
             }
+            if (improperPath.Contains(xy))
+                return new PathDetails();
             else
             {
                 int? minCount = null;
@@ -114,13 +118,16 @@ namespace TaskHiring.Services
                     newForbiddenPath.AddRange(forbiddenPath);
                     //var firstTask = FindShortestWay(x, currency, newForbiden);
                     //var secondTask = FindShortestWay(currency, y, newForbiden);
+
+
                     //await Task.WhenAll(firstTask, secondTask);
                     //var first = firstTask.Result;
                     //var second = secondTask.Result;
-                    var first = await FindShortestWay(x, currency, newForbiddenPath);
-                    var second = await FindShortestWay(currency, y, newForbiddenPath);
+                    var first = await FindShortestWay(x, currency, newForbiddenPath,improperPath);
+                    var second = await FindShortestWay(currency, y, newForbiddenPath,improperPath);
                     int newCount = first.Count + second.Count;
                     if (first.Count > 0 && second.Count > 0)
+                    {
                         if (!minCount.HasValue || newCount < minCount)
                         {
                             minCount = newCount;
@@ -129,16 +136,39 @@ namespace TaskHiring.Services
                             pathDetails.SequentialPath.AddRange(first.SequentialPath);
                             pathDetails.SequentialPath.AddRange(second.SequentialPath);
                             pathDetails.Multiply = first.Multiply * second.Multiply;
+                            if (_pathValue.ContainsKey(xy))
+                            {
+                                _pathValue[xy] = pathDetails;
+                                _pathValue[yx] = new PathDetails()
+                                {
+                                    Count = pathDetails.Count,
+                                    Multiply = 1 / pathDetails.Multiply,
+                                    SequentialPath = ReversePath(pathDetails.SequentialPath)
+                                };
+                            }
+                            else
+                            {
+                                _pathValue.TryAdd(xy, pathDetails);
+                                _pathValue.TryAdd(yx, new PathDetails()
+                                {
+                                    Count = pathDetails.Count,
+                                    Multiply = 1 / pathDetails.Multiply,
+                                    SequentialPath = ReversePath(pathDetails.SequentialPath)
+                                });
+                            }
+                            //return pathDetails;
                         }
+                    }
+
                 }
-                _pathValue.TryAdd(xy, pathDetails);
-                _pathValue.TryAdd(yx, new PathDetails()
+
+                if (!_pathValue.ContainsKey(xy))
                 {
-                    Count = pathDetails.Count,
-                    Multiply = 1 / pathDetails.Multiply,
-                    //SequentialPath = ReversePath(pathDetails.SequentialPath)
-                });
+                    improperPath.Add(xy);
+                    improperPath.Add(yx);
+                }
                 return pathDetails;
+
             }
 
 
