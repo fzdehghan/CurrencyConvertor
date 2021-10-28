@@ -1,0 +1,10 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=8ba64696_002D2dd3_002D430f_002Da154_002Da5ce4961dcbc/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Test1" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;xUnit::F7F6F5E2-F4EC-4A91-9267-1D16E374205F::net5.0::CurrencyConvertor.Testd.UnitTest1.Test1&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;xUnit::F7F6F5E2-F4EC-4A91-9267-1D16E374205F::net5.0::CurrencyConvertor.Testd.Services.CurrencyConverterTest.UpdateConfigTest&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;xUnit::F7F6F5E2-F4EC-4A91-9267-1D16E374205F::net5.0::CurrencyConvertor.Testd.Services.CurrencyConverterTest.Test2&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;xUnit::F7F6F5E2-F4EC-4A91-9267-1D16E374205F::net5.0::CurrencyConvertor.Testd.Services.CurrencyConverterTest.Test1&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;xUnit::F7F6F5E2-F4EC-4A91-9267-1D16E374205F::net5.0::CurrencyConvertor.Testd.Services.CurrencyConverterTest&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>
