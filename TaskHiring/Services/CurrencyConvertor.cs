@@ -31,6 +31,7 @@ namespace TaskHiring.Services
             }
             lock (lockingObj)
             {
+
                 _pathValue = new ConcurrentDictionary<string, PathDetails>();
                 foreach (var key in _basePathValue.Keys)
                 {
@@ -90,7 +91,10 @@ namespace TaskHiring.Services
             _currencies.Add(x);
             _currencies.Add(y);
         }
-        private async Task<PathDetails> FindShortestWay(string x, string y, List<string> forbiddenPath = null, HashSet<string> improperPath = null)
+        private async Task<PathDetails> FindShortestWay(string x, string y, List<string> forbiddenPath = null,
+                                                        HashSet<string> improperPath = null, 
+                                                        ConcurrentDictionary<string, PathDetails> localPathDetails=null,
+                                                        DateTime? startingDateTime=null)
         {
             if (forbiddenPath == null || forbiddenPath.Count < 1)
                 forbiddenPath = new List<string>() { x, y };
