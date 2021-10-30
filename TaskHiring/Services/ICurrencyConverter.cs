@@ -23,7 +23,7 @@ namespace TaskHiring.Services
         /////////
         /// my methods
         /// 
-        Task<List<string>> GetShortestPath(string fromCurrency, string toCurrency);
+        List<string> GetShortestPath(string fromCurrency, string toCurrency);
 
     }
 }

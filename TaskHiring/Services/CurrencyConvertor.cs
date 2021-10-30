@@ -11,44 +11,66 @@ namespace TaskHiring.Services
         private ConcurrentDictionary<string, PathDetails> _pathValue = new ConcurrentDictionary<string, PathDetails>();
         private ConcurrentDictionary<string, PathDetails> _basePathValue = new ConcurrentDictionary<string, PathDetails>();
         private HashSet<string> _currencies = new HashSet<string>();
-        private object lockingObj = new object();
+        private object _lockingObj = new object();
+        private object _lockingBaseObj = new object();
+        private bool _updating = false;
+        private DateTime _lastUpdatingConfiguration;
 
         public void ClearConfiguration()
         {
-            _pathValue = new ConcurrentDictionary<string, PathDetails>();
-            _basePathValue = new ConcurrentDictionary<string, PathDetails>();
-            _currencies = new HashSet<string>();
+            lock (_lockingBaseObj)
+            {
+                _updating = true;
+                _lastUpdatingConfiguration = DateTime.Now;
+                lock (_lockingObj)
+                {
+                    _pathValue = new ConcurrentDictionary<string, PathDetails>();
+                    _basePathValue = new ConcurrentDictionary<string, PathDetails>();
+                    _currencies = new HashSet<string>();
+                }
+                _updating = false;
+            }
         }
-
-
-
         public void UpdateConfiguration(IEnumerable<Tuple<string, string, double>> conversionRates)
         {
-
-            foreach (var item in conversionRates)
+            lock (_lockingBaseObj)
             {
-                AddPathValue(item.Item1, item.Item2, item.Item3);
-            }
-            lock (lockingObj)
-            {
+                _updating = true;
+                _lastUpdatingConfiguration = DateTime.Now;
 
-                _pathValue = new ConcurrentDictionary<string, PathDetails>();
-                foreach (var key in _basePathValue.Keys)
+                foreach (var item in conversionRates)
                 {
-                    _pathValue.TryAdd(key, _basePathValue[key]);
+                    AddPathValue(item.Item1, item.Item2, item.Item3);
+                }
+                lock (_lockingObj)
+                {
+                    _pathValue = new ConcurrentDictionary<string, PathDetails>();
+                    foreach (var key in _basePathValue.Keys)
+                    {
+                        _pathValue.TryAdd(key, _basePathValue[key]);
+                    }
                 }
             }
         }
 
         public async Task<double> Convert(string fromCurrency, string toCurrency, double amount)
         {
-            var details = await FindShortestWay(fromCurrency, toCurrency);
-            return Math.Round(details.Multiply,3);
+            var localPathDetails = new ConcurrentDictionary<string, PathDetails>();
+            lock (_lockingObj)
+            {
+                foreach(var key in _pathValue.Keys)
+                {
+                    localPathDetails.TryAdd(key, _pathValue[key]);
+                }
+            }
+            var details = await FindShortestWay(fromCurrency, toCurrency,true,localPathDetails);
+            return Math.Round(details.Multiply, 3);
         }
-        public async Task<List<string>> GetShortestPath(string fromCurrency, string toCurrency)
+        public List<string> GetShortestPath(string fromCurrency, string toCurrency)
         {
-            var details = await FindShortestWay(fromCurrency, toCurrency);
-            return details.SequentialPath;
+            var xy = GetPairs(fromCurrency, toCurrency);
+            return _pathValue[xy]?.SequentialPath;          
+           
         }
 
 
@@ -91,10 +113,11 @@ namespace TaskHiring.Services
             _currencies.Add(x);
             _currencies.Add(y);
         }
-        private async Task<PathDetails> FindShortestWay(string x, string y, List<string> forbiddenPath = null,
-                                                        HashSet<string> improperPath = null, 
-                                                        ConcurrentDictionary<string, PathDetails> localPathDetails=null,
-                                                        DateTime? startingDateTime=null)
+        private async Task<PathDetails> FindShortestWay(string x, string y, bool isMainMethod,
+                                                        ConcurrentDictionary<string, PathDetails> localPathDetails,
+                                                        List<string> forbiddenPath = null,
+                                                        HashSet<string> improperPath = null,
+                                                        DateTime? startingDateTime = null)
         {
             if (forbiddenPath == null || forbiddenPath.Count < 1)
                 forbiddenPath = new List<string>() { x, y };
@@ -103,16 +126,17 @@ namespace TaskHiring.Services
             var xy = GetPairs(x, y);
             var yx = GetPairs(y, x);
 
-            if (_pathValue.Keys.Contains(xy))
+            if (localPathDetails.Keys.Contains(xy))
             {
-                return _pathValue[xy];
+                return localPathDetails[xy];
             }
+            PathDetails pathDetails = new PathDetails();
             if (improperPath.Contains(xy))
                 return new PathDetails();
             else
             {
                 int? minCount = null;
-                PathDetails pathDetails = new PathDetails();
+                
 
                 foreach (var currency in _currencies)
                 {
@@ -127,8 +151,8 @@ namespace TaskHiring.Services
                     //await Task.WhenAll(firstTask, secondTask);
                     //var first = firstTask.Result;
                     //var second = secondTask.Result;
-                    var first = await FindShortestWay(x, currency, newForbiddenPath,improperPath);
-                    var second = await FindShortestWay(currency, y, newForbiddenPath,improperPath);
+                    var first = await FindShortestWay(x, currency,false,localPathDetails, newForbiddenPath, improperPath);
+                    var second = await FindShortestWay(currency, y,false,localPathDetails, newForbiddenPath, improperPath);
                     int newCount = first.Count + second.Count;
                     if (first.Count > 0 && second.Count > 0)
                     {
@@ -175,7 +199,22 @@ namespace TaskHiring.Services
 
             }
 
+            if(isMainMethod)
+            {
+                if (startingDateTime > _lastUpdatingConfiguration)
+                    UpdatePathValue(xy, pathDetails,localPathDetails);
+                //calculate all path in xy and save in a dictionary
+                //check starting datetime 
+                //lock lockingobj and update pathvalue
+            }
 
+        }
+
+        private void UpdatePathValue(string path,  PathDetails pathDetails,ConcurrentDictionary<string,PathDetails> localPathValue)
+        {
+            if (localPathValue.ContainsKey(path))
+                if (localPathValue[path].Count > pathDetails.Count)
+                    localPathValue[path] = pathDetails;
         }
 
         private string GetPairs(string x, string y)
