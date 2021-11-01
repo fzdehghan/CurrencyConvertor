@@ -58,19 +58,19 @@ namespace TaskHiring.Services
             var localPathDetails = new ConcurrentDictionary<string, PathDetails>();
             lock (_lockingObj)
             {
-                foreach(var key in _pathValue.Keys)
+                foreach (var key in _pathValue.Keys)
                 {
                     localPathDetails.TryAdd(key, _pathValue[key]);
                 }
             }
-            var details = await FindShortestWay(fromCurrency, toCurrency,true,localPathDetails);
+            var details = await FindShortestWay(fromCurrency, toCurrency, true, localPathDetails);
             return Math.Round(details.Multiply, 3);
         }
         public List<string> GetShortestPath(string fromCurrency, string toCurrency)
         {
             var xy = GetPairs(fromCurrency, toCurrency);
-            return _pathValue[xy]?.SequentialPath;          
-           
+            return _pathValue[xy]?.SequentialPath;
+
         }
 
 
@@ -119,6 +119,8 @@ namespace TaskHiring.Services
                                                         HashSet<string> improperPath = null,
                                                         DateTime? startingDateTime = null)
         {
+            if (!startingDateTime.HasValue)
+                startingDateTime = DateTime.Now;
             if (forbiddenPath == null || forbiddenPath.Count < 1)
                 forbiddenPath = new List<string>() { x, y };
             if (improperPath == null || improperPath.Count < 1)
@@ -132,89 +134,157 @@ namespace TaskHiring.Services
             }
             PathDetails pathDetails = new PathDetails();
             if (improperPath.Contains(xy))
-                return new PathDetails();
-            else
-            {
-                int? minCount = null;
-                
-
-                foreach (var currency in _currencies)
-                {
-                    if (forbiddenPath.Contains(currency))
-                        continue;
-                    var newForbiddenPath = new List<string> { currency };
-                    newForbiddenPath.AddRange(forbiddenPath);
-                    //var firstTask = FindShortestWay(x, currency, newForbiden);
-                    //var secondTask = FindShortestWay(currency, y, newForbiden);
-
-
-                    //await Task.WhenAll(firstTask, secondTask);
-                    //var first = firstTask.Result;
-                    //var second = secondTask.Result;
-                    var first = await FindShortestWay(x, currency,false,localPathDetails, newForbiddenPath, improperPath);
-                    var second = await FindShortestWay(currency, y,false,localPathDetails, newForbiddenPath, improperPath);
-                    int newCount = first.Count + second.Count;
-                    if (first.Count > 0 && second.Count > 0)
-                    {
-                        if (!minCount.HasValue || newCount < minCount)
-                        {
-                            minCount = newCount;
-                            pathDetails.Count = minCount.Value;
-                            pathDetails.SequentialPath = new List<string>();
-                            pathDetails.SequentialPath.AddRange(first.SequentialPath);
-                            pathDetails.SequentialPath.AddRange(second.SequentialPath);
-                            pathDetails.Multiply = first.Multiply * second.Multiply;
-                            if (_pathValue.ContainsKey(xy))
-                            {
-                                _pathValue[xy] = pathDetails;
-                                _pathValue[yx] = new PathDetails()
-                                {
-                                    Count = pathDetails.Count,
-                                    Multiply = 1 / pathDetails.Multiply,
-                                    SequentialPath = ReversePath(pathDetails.SequentialPath)
-                                };
-                            }
-                            else
-                            {
-                                _pathValue.TryAdd(xy, pathDetails);
-                                _pathValue.TryAdd(yx, new PathDetails()
-                                {
-                                    Count = pathDetails.Count,
-                                    Multiply = 1 / pathDetails.Multiply,
-                                    SequentialPath = ReversePath(pathDetails.SequentialPath)
-                                });
-                            }
-                            //return pathDetails;
-                        }
-                    }
-
-                }
-
-                if (!_pathValue.ContainsKey(xy))
-                {
-                    improperPath.Add(xy);
-                    improperPath.Add(yx);
-                }
                 return pathDetails;
 
+            int? minCount = null;
+            foreach (var currency in _currencies)
+            {
+                if (forbiddenPath.Contains(currency))
+                    continue;
+                var newForbiddenPath = new List<string> { currency };
+                newForbiddenPath.AddRange(forbiddenPath);
+                //var firstTask = FindShortestWay(x, currency, newForbiden);
+                //var secondTask = FindShortestWay(currency, y, newForbiden);
+
+
+                //await Task.WhenAll(firstTask, secondTask);
+                //var first = firstTask.Result;
+                //var second = secondTask.Result;
+                var first = await FindShortestWay(x, currency, false, localPathDetails, newForbiddenPath, improperPath);
+                var second = await FindShortestWay(currency, y, false, localPathDetails, newForbiddenPath, improperPath);
+                CheckImproperPath(improperPath, first, x, currency);
+                CheckImproperPath(improperPath, second, currency, y);
+
+                int newCount = first.Count + second.Count;
+                if (first.Count > 0 && second.Count > 0)
+                {
+                    if (!minCount.HasValue || newCount < minCount)
+                    {
+                        minCount = newCount;
+                        pathDetails.Count = minCount.Value;
+                        pathDetails.SequentialPath = new List<string>();
+                        pathDetails.SequentialPath.AddRange(first.SequentialPath);
+                        pathDetails.SequentialPath.AddRange(second.SequentialPath);
+                        pathDetails.Multiply = first.Multiply * second.Multiply;
+                        if (localPathDetails.ContainsKey(xy))
+                        {
+                            localPathDetails[xy] = pathDetails;
+                            localPathDetails[yx] = new PathDetails()
+                            {
+                                Count = pathDetails.Count,
+                                Multiply = 1 / pathDetails.Multiply,
+                                SequentialPath = ReversePath(pathDetails.SequentialPath)
+                            };
+                        }
+                        else
+                        {
+                            localPathDetails.TryAdd(xy, pathDetails);
+                            localPathDetails.TryAdd(yx, new PathDetails()
+                            {
+                                Count = pathDetails.Count,
+                                Multiply = 1 / pathDetails.Multiply,
+                                SequentialPath = ReversePath(pathDetails.SequentialPath)
+                            });
+                        }
+                        //return pathDetails;
+                    }
+                }
+
             }
 
-            if(isMainMethod)
+            if (!localPathDetails.ContainsKey(xy))
+            {
+                improperPath.Add(xy);
+                improperPath.Add(yx);
+                return pathDetails;
+            }
+
+
+
+            if (isMainMethod)
             {
                 if (startingDateTime > _lastUpdatingConfiguration)
-                    UpdatePathValue(xy, pathDetails,localPathDetails);
-                //calculate all path in xy and save in a dictionary
-                //check starting datetime 
-                //lock lockingobj and update pathvalue
-            }
+                {
+                    var minimalPathValue = GetMinimalPathValue(xy, pathDetails, localPathDetails);
+                    lock(_lockingObj)
+                    {
+                        if (startingDateTime > _lastUpdatingConfiguration)
+                            foreach (var key in minimalPathValue.Keys)
+                            {
+                                try
+                                {
+                                    _pathValue[key] = minimalPathValue[key];
+                                }
+                                catch (Exception)
+                                {
 
+                                    //throw;
+                                }
+                            }
+
+                    }
+                    //calculate all path in xy and save in a dictionary
+                    //check starting datetime 
+                    //lock lockingobj and update pathvalue
+                }
+                return pathDetails;
+            }
+            return pathDetails;
         }
 
-        private void UpdatePathValue(string path,  PathDetails pathDetails,ConcurrentDictionary<string,PathDetails> localPathValue)
+        private void CheckImproperPath(HashSet<string> improperPath, PathDetails first, string currency1, string currency2)
         {
+            if (first.Count == 0)
+            {
+                improperPath.Add(GetPairs(currency1, currency2));
+                improperPath.Add(GetPairs(currency2, currency1));
+            }
+        }
+
+        private ConcurrentDictionary<string,PathDetails> GetMinimalPathValue(string path, PathDetails pathDetails, ConcurrentDictionary<string, PathDetails> localPathValue)
+        {
+            var minimalPathValue = new ConcurrentDictionary<string, PathDetails>();
             if (localPathValue.ContainsKey(path))
                 if (localPathValue[path].Count > pathDetails.Count)
                     localPathValue[path] = pathDetails;
+            string[] currenciesInSequentialPath = GetCurrenciesInSequentialPath(pathDetails.SequentialPath);
+            var length = currenciesInSequentialPath.Length;
+            for (int i = 0; i < length; i++)
+            {
+                for (int j = i+1; j < length; j++)
+                {
+                    var pair = GetPairs(currenciesInSequentialPath[i], currenciesInSequentialPath[j]);
+                    if (localPathValue.ContainsKey(pair))
+                        minimalPathValue.TryAdd(pair, localPathValue[pair]);
+                    else
+                    {
+
+                    }
+                    var reversePair = GetPairs(currenciesInSequentialPath[j], currenciesInSequentialPath[i]);
+                    if (localPathValue.ContainsKey(pair))
+                        minimalPathValue.TryAdd(pair, localPathValue[pair]);
+                    else
+                    {
+
+                    }
+                }
+            }
+            return minimalPathValue;
+        }
+
+        private string[] GetCurrenciesInSequentialPath(List<string> sequentialPath)
+        {
+            var currencies = new HashSet<string>();
+            if(sequentialPath!=null&&sequentialPath.Count>0)
+                foreach (var item in sequentialPath)
+                {
+                    var pairCurrencies = item.Split('_');
+                    currencies.Add(pairCurrencies[0]);
+                    currencies.Add(pairCurrencies[1]);
+                }
+            String[] stringArray = new String[currencies.Count];
+            currencies.CopyTo(stringArray);
+            return stringArray;
         }
 
         private string GetPairs(string x, string y)

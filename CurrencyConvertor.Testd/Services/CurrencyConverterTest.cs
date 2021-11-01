@@ -164,6 +164,29 @@ namespace CurrencyConvertor.Testd.Services
             Equal(0.033, result);
         }
 
+        [Fact]
+        public async Task ReturnZeroWhenNoConfigurationExist()
+        {
+            _currencyConverter.ClearConfiguration();
+            
+            var result = await _currencyConverter.Convert("USD", "SOT", 0);
+            Equal(0, result);
+        }
+
+        [Fact]
+        public async Task ReturnZeroWhenNoPathExist2()
+        {
+            _currencyConverter.ClearConfiguration();
+            _currencyConverter.UpdateConfiguration(new List<Tuple<string, string, double>>()
+            {
+                new ("CAD", "GBP", 0.58),
+                new ("USD", "EUR", 0.86),
+
+            });
+            var result = await _currencyConverter.Convert("CAD", "EUR", 0);
+            Equal(0, result);
+        }
+
 
 
 
