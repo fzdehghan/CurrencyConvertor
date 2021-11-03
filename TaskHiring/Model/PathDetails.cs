@@ -10,6 +10,6 @@ namespace TaskHiring.Model
     {
         public int Count { get; set; }
         public List<string> SequentialPath { get; set; }
-        public double Multiply { get; set; }
+        public double Amount { get; set; }
     }
 }
